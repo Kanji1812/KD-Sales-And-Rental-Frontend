@@ -41,27 +41,16 @@ import {
   TableHeader, 
   TableRow 
 } from "@/components/ui/table";
-
-const data = [
-  { name: "Jan", revenue: 4500, orders: 120 },
-  { name: "Feb", revenue: 5200, orders: 150 },
-  { name: "Mar", revenue: 4800, orders: 140 },
-  { name: "Apr", revenue: 6100, orders: 180 },
-  { name: "May", revenue: 5900, orders: 170 },
-  { name: "Jun", revenue: 7200, orders: 210 },
-  { name: "Jul", revenue: 8400, orders: 250 },
-];
-
-const recentOrders = [
-  { id: "#ORD-1234", customer: "Sarah Jenkins", product: "Silk Evening Gown", amount: "$120.00", status: "Completed" },
-  { id: "#ORD-1235", customer: "Michael Chen", product: "Wool Tailored Suit", amount: "$250.00", status: "Pending" },
-  { id: "#ORD-1236", customer: "Elena Rodriguez", product: "Designer Handbag", amount: "$85.00", status: "Processing" },
-  { id: "#ORD-1237", customer: "James Wilson", product: "Leather Jacket", amount: "$195.00", status: "Completed" },
-];
+import { useMockStore } from "@/src/store/useMockStore";
+import Link from "next/link";
 
 export default function AdminDashboard() {
+  const { dashboardData, orders, rentals, customers } = useMockStore();
+
+  const recentOrders = orders.slice(0, 5);
+
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 animate-in fade-in zoom-in-95 duration-300">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -73,10 +62,12 @@ export default function AdminDashboard() {
               <CalendarIcon className="mr-2 h-4 w-4" />
               This Month
            </Button>
-           <Button className="rounded-xl h-11 shadow-lg shadow-primary/20">
-              <Plus className="mr-2 h-4 w-4" />
-              New Order
-           </Button>
+           <Link href="/admin/orders">
+             <Button className="rounded-xl h-11 shadow-lg shadow-primary/20">
+                <Plus className="mr-2 h-4 w-4" />
+                New Order
+             </Button>
+           </Link>
         </div>
       </div>
 
@@ -84,29 +75,29 @@ export default function AdminDashboard() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard 
           title="Total Revenue" 
-          value="$45,231.89" 
-          trend="+20.1%" 
+          value={dashboardData.stats.totalRevenue} 
+          trend={dashboardData.stats.totalRevenueTrend} 
           isPositive={true} 
           icon={DollarSign} 
         />
         <StatCard 
           title="Total Orders" 
-          value="1,245" 
-          trend="+12.5%" 
+          value={orders.length.toString()} 
+          trend={dashboardData.stats.totalOrdersTrend} 
           isPositive={true} 
           icon={ShoppingCart} 
         />
         <StatCard 
           title="Active Rentals" 
-          value="432" 
-          trend="-2.4%" 
+          value={rentals.filter(r => r.status === "Active").length.toString()} 
+          trend={dashboardData.stats.activeRentalsTrend} 
           isPositive={false} 
           icon={CalendarIcon} 
         />
         <StatCard 
           title="Total Customers" 
-          value="2,845" 
-          trend="+5.7%" 
+          value={customers.length.toString()} 
+          trend={dashboardData.stats.totalCustomersTrend} 
           isPositive={true} 
           icon={Users} 
         />
@@ -124,7 +115,7 @@ export default function AdminDashboard() {
           </CardHeader>
           <CardContent className="h-[350px] pt-4">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={data}>
+              <AreaChart data={dashboardData.revenueData}>
                 <defs>
                   <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.1}/>
@@ -171,12 +162,7 @@ export default function AdminDashboard() {
             <CardDescription>Top performing categories.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6 pt-4">
-            {[
-              { name: "Evening Gowns", count: 450, color: "bg-blue-500" },
-              { name: "Men's Suits", count: 320, color: "bg-purple-500" },
-              { name: "Accessories", count: 180, color: "bg-emerald-500" },
-              { name: "Shoes", count: 120, color: "bg-amber-500" },
-            ].map((cat, i) => (
+            {dashboardData.inventorySummary.map((cat, i) => (
               <div key={i} className="space-y-2">
                 <div className="flex items-center justify-between text-sm">
                   <span className="font-medium">{cat.name}</span>
@@ -205,7 +191,9 @@ export default function AdminDashboard() {
             <CardTitle className="text-xl">Recent Orders</CardTitle>
             <CardDescription>Latest transactions across your platform.</CardDescription>
           </div>
-          <Button variant="outline" size="sm" className="rounded-lg">View All</Button>
+          <Link href="/admin/orders">
+            <Button variant="outline" size="sm" className="rounded-lg">View All</Button>
+          </Link>
         </CardHeader>
         <CardContent className="p-0">
           <Table>
@@ -213,8 +201,8 @@ export default function AdminDashboard() {
               <TableRow>
                 <TableHead className="pl-6">Order ID</TableHead>
                 <TableHead>Customer</TableHead>
-                <TableHead>Product</TableHead>
                 <TableHead>Amount</TableHead>
+                <TableHead>Payment</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right pr-6">Action</TableHead>
               </TableRow>
@@ -223,17 +211,20 @@ export default function AdminDashboard() {
               {recentOrders.map((order) => (
                 <TableRow key={order.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/20">
                   <TableCell className="pl-6 font-medium">{order.id}</TableCell>
-                  <TableCell>{order.customer}</TableCell>
-                  <TableCell>{order.product}</TableCell>
-                  <TableCell>{order.amount}</TableCell>
+                  <TableCell>{order.customerName}</TableCell>
+                  <TableCell className="font-bold">${order.totalAmount}</TableCell>
+                  <TableCell>
+                    <Badge variant="outline" className="rounded-lg">{order.paymentMethod}</Badge>
+                  </TableCell>
                   <TableCell>
                     <Badge 
                       variant="secondary" 
                       className={cn(
-                        "rounded-lg px-2.5 py-0.5 font-medium",
+                        "rounded-lg px-2.5 py-0.5 font-medium border-transparent",
                         order.status === "Completed" && "bg-emerald-500/10 text-emerald-600",
                         order.status === "Pending" && "bg-amber-500/10 text-amber-600",
-                        order.status === "Processing" && "bg-blue-500/10 text-blue-600"
+                        order.status === "Processing" && "bg-blue-500/10 text-blue-600",
+                        order.status === "Cancelled" && "bg-rose-500/10 text-rose-600"
                       )}
                     >
                       {order.status}
@@ -246,6 +237,13 @@ export default function AdminDashboard() {
                   </TableCell>
                 </TableRow>
               ))}
+              {recentOrders.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={6} className="h-16 text-center text-muted-foreground">
+                    No recent orders.
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </CardContent>
