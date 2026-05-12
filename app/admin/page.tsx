@@ -1,253 +1,210 @@
 "use client";
 
-import { StatCard } from "@/components/ui/StatCard";
-import { 
-  DollarSign, 
-  ShoppingCart, 
-  Package, 
-  Users, 
-  TrendingUp, 
-  Calendar as CalendarIcon,
-  ChevronRight,
-  MoreVertical,
-  Plus
-} from "lucide-react";
-import { cn } from "@/lib/utils";
-import { 
-  BarChart, 
-  Bar, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  ResponsiveContainer, 
-  AreaChart, 
-  Area 
-} from "recharts";
-import { 
-  Card, 
-  CardHeader, 
-  CardTitle, 
-  CardContent, 
-  CardDescription 
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
-} from "@/components/ui/table";
-import { useMockStore } from "@/src/store/useMockStore";
 import Link from "next/link";
+import {
+  Activity,
+  AlertTriangle,
+  CalendarDays,
+  IndianRupee,
+  PackageCheck,
+  Plus,
+  ReceiptText,
+} from "lucide-react";
+import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { MetricCard } from "@/components/admin/metric-card";
+import { PageHeader } from "@/components/admin/page-header";
+import { StatusBadge } from "@/components/admin/status-badge";
+import { formatCurrency, useMockStore } from "@/src/store/useMockStore";
 
 export default function AdminDashboard() {
-  const { dashboardData, orders, rentals, customers } = useMockStore();
-
-  const recentOrders = orders.slice(0, 5);
+  const { products, orders, rentals, activityLogs, dashboardData } = useMockStore();
+  const totalRevenue = orders
+    .filter((order) => order.status === "completed")
+    .reduce((sum, order) => sum + order.totalAmount, 0);
+  const blockedStock = products.reduce(
+    (sum, product) => sum + product.rentedQty + product.washingQty + product.reservedQty,
+    0
+  );
+  const overdueRentals = rentals.filter((rental) => rental.status === "overdue");
 
   return (
-    <div className="space-y-8 animate-in fade-in zoom-in-95 duration-300">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-heading font-bold tracking-tight">Dashboard Overview</h1>
-          <p className="text-muted-foreground mt-1">Welcome back, Admin! Here's what's happening today.</p>
-        </div>
-        <div className="flex items-center space-x-3">
-           <Button variant="outline" className="rounded-xl h-11">
-              <CalendarIcon className="mr-2 h-4 w-4" />
-              This Month
-           </Button>
-           <Link href="/admin/orders">
-             <Button className="rounded-xl h-11 shadow-lg shadow-primary/20">
-                <Plus className="mr-2 h-4 w-4" />
-                New Order
-             </Button>
-           </Link>
-        </div>
+    <div className="space-y-6 animate-in fade-in zoom-in-95 duration-300">
+      <PageHeader
+        eyebrow="KD Sales & Rental"
+        title="Enterprise Command Center"
+        description="Frontend-only ERP cockpit aligned with catalog, inventory, customers, sales, rentals, billing, subscriptions, and reports modules."
+        actions={
+          <>
+            <Link href="/admin/rentals">
+              <Button variant="outline" className="h-10">
+                <CalendarDays className="mr-2 size-4" />
+                New Rental
+              </Button>
+            </Link>
+            <Link href="/admin/orders">
+              <Button className="h-10">
+                <Plus className="mr-2 size-4" />
+                Create Invoice
+              </Button>
+            </Link>
+          </>
+        }
+      />
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <MetricCard
+          title="Collected Revenue"
+          value={formatCurrency(totalRevenue)}
+          detail={`${dashboardData.stats.totalRevenueTrend} versus last month`}
+          icon={IndianRupee}
+          tone="emerald"
+        />
+        <MetricCard
+          title="Sales Invoices"
+          value={orders.length.toString()}
+          detail={`${orders.filter((order) => order.paymentStatus === "pending").length} awaiting payment`}
+          icon={ReceiptText}
+          tone="blue"
+        />
+        <MetricCard
+          title="Rental Pipeline"
+          value={rentals.filter((rental) => rental.status === "active").length.toString()}
+          detail={`${overdueRentals.length} overdue return needs attention`}
+          icon={CalendarDays}
+          tone={overdueRentals.length ? "rose" : "emerald"}
+        />
+        <MetricCard
+          title="Inventory Blocked"
+          value={blockedStock.toString()}
+          detail="Rented, washing, and reserved pieces"
+          icon={PackageCheck}
+          tone="amber"
+        />
       </div>
 
-      {/* Quick Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard 
-          title="Total Revenue" 
-          value={dashboardData.stats.totalRevenue} 
-          trend={dashboardData.stats.totalRevenueTrend} 
-          isPositive={true} 
-          icon={DollarSign} 
-        />
-        <StatCard 
-          title="Total Orders" 
-          value={orders.length.toString()} 
-          trend={dashboardData.stats.totalOrdersTrend} 
-          isPositive={true} 
-          icon={ShoppingCart} 
-        />
-        <StatCard 
-          title="Active Rentals" 
-          value={rentals.filter(r => r.status === "Active").length.toString()} 
-          trend={dashboardData.stats.activeRentalsTrend} 
-          isPositive={false} 
-          icon={CalendarIcon} 
-        />
-        <StatCard 
-          title="Total Customers" 
-          value={customers.length.toString()} 
-          trend={dashboardData.stats.totalCustomersTrend} 
-          isPositive={true} 
-          icon={Users} 
-        />
-      </div>
-
-      {/* Charts Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="lg:col-span-2 border-none shadow-md overflow-hidden">
-          <CardHeader className="flex flex-row items-center justify-between">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+        <Card className="xl:col-span-2">
+          <CardHeader className="flex flex-row items-start justify-between gap-4">
             <div>
-              <CardTitle className="text-xl">Revenue Analytics</CardTitle>
-              <CardDescription>Monthly revenue growth and projections.</CardDescription>
+              <CardTitle>Revenue Analytics</CardTitle>
+              <CardDescription>Sales, rental, and subscription income by month.</CardDescription>
             </div>
-            <TrendingUp className="h-5 w-5 text-emerald-500" />
+            <Activity className="size-5 text-emerald-600" />
           </CardHeader>
-          <CardContent className="h-[350px] pt-4">
+          <CardContent className="h-[330px]">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={dashboardData.revenueData}>
-                <defs>
-                  <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.1}/>
-                    <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--muted))" />
-                <XAxis 
-                  dataKey="name" 
-                  axisLine={false} 
-                  tickLine={false} 
-                  tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }}
-                />
-                <YAxis 
-                  axisLine={false} 
-                  tickLine={false} 
-                  tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }}
-                  tickFormatter={(value) => `$${value}`}
-                />
-                <Tooltip 
-                  contentStyle={{ 
-                    borderRadius: '12px', 
-                    border: 'none', 
-                    boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
-                    backgroundColor: 'white'
-                  }}
-                />
-                <Area 
-                  type="monotone" 
-                  dataKey="revenue" 
-                  stroke="hsl(var(--primary))" 
-                  strokeWidth={3}
-                  fillOpacity={1} 
-                  fill="url(#colorRevenue)" 
-                />
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} />
+                <YAxis axisLine={false} tickLine={false} tickFormatter={(value) => `₹${Number(value) / 1000}k`} />
+                <Tooltip formatter={(value) => formatCurrency(Number(value))} />
+                <Area type="monotone" dataKey="sales" stackId="1" stroke="#2563eb" fill="#bfdbfe" />
+                <Area type="monotone" dataKey="rentals" stackId="1" stroke="#059669" fill="#bbf7d0" />
+                <Area type="monotone" dataKey="subscriptions" stackId="1" stroke="#d97706" fill="#fde68a" />
               </AreaChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
 
-        <Card className="border-none shadow-md overflow-hidden">
+        <Card>
           <CardHeader>
-            <CardTitle className="text-xl">Inventory Summary</CardTitle>
-            <CardDescription>Top performing categories.</CardDescription>
+            <CardTitle>Inventory Health</CardTitle>
+            <CardDescription>Available stock by backend catalog category.</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-6 pt-4">
-            {dashboardData.inventorySummary.map((cat, i) => (
-              <div key={i} className="space-y-2">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="font-medium">{cat.name}</span>
-                  <span className="text-muted-foreground">{cat.count} items</span>
+          <CardContent className="space-y-5">
+            {dashboardData.inventorySummary.map((category) => {
+              const availablePercent = Math.round((category.available / category.count) * 100);
+              return (
+                <div key={category.name} className="space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="font-medium">{category.name}</span>
+                    <span className="text-muted-foreground">{category.available}/{category.count}</span>
+                  </div>
+                  <div className="h-2 overflow-hidden rounded-full bg-muted">
+                    <div className={category.color} style={{ width: `${availablePercent}%`, height: "100%" }} />
+                  </div>
                 </div>
-                <div className="h-2 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                  <div 
-                    className={cn("h-full rounded-full", cat.color)} 
-                    style={{ width: `${(cat.count / 500) * 100}%` }}
-                  />
-                </div>
-              </div>
-            ))}
-            <Button variant="ghost" className="w-full text-xs text-primary font-bold uppercase tracking-widest mt-4">
-              View Detailed Report
-              <ChevronRight className="ml-2 h-3 w-3" />
-            </Button>
+              );
+            })}
           </CardContent>
         </Card>
       </div>
 
-      {/* Recent Activity Section */}
-      <Card className="border-none shadow-md overflow-hidden">
-        <CardHeader className="flex flex-row items-center justify-between">
-          <div>
-            <CardTitle className="text-xl">Recent Orders</CardTitle>
-            <CardDescription>Latest transactions across your platform.</CardDescription>
-          </div>
-          <Link href="/admin/orders">
-            <Button variant="outline" size="sm" className="rounded-lg">View All</Button>
-          </Link>
-        </CardHeader>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader className="bg-slate-50 dark:bg-slate-900/50">
-              <TableRow>
-                <TableHead className="pl-6">Order ID</TableHead>
-                <TableHead>Customer</TableHead>
-                <TableHead>Amount</TableHead>
-                <TableHead>Payment</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right pr-6">Action</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {recentOrders.map((order) => (
-                <TableRow key={order.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/20">
-                  <TableCell className="pl-6 font-medium">{order.id}</TableCell>
-                  <TableCell>{order.customerName}</TableCell>
-                  <TableCell className="font-bold">${order.totalAmount}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className="rounded-lg">{order.paymentMethod}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge 
-                      variant="secondary" 
-                      className={cn(
-                        "rounded-lg px-2.5 py-0.5 font-medium border-transparent",
-                        order.status === "Completed" && "bg-emerald-500/10 text-emerald-600",
-                        order.status === "Pending" && "bg-amber-500/10 text-amber-600",
-                        order.status === "Processing" && "bg-blue-500/10 text-blue-600",
-                        order.status === "Cancelled" && "bg-rose-500/10 text-rose-600"
-                      )}
-                    >
-                      {order.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right pr-6">
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                      <MoreVertical className="h-4 w-4" />
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {recentOrders.length === 0 && (
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+        <Card className="xl:col-span-2">
+          <CardHeader>
+            <CardTitle>Recent Sales Invoices</CardTitle>
+            <CardDescription>GST billing and payment status from the sales module.</CardDescription>
+          </CardHeader>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={6} className="h-16 text-center text-muted-foreground">
-                    No recent orders.
-                  </TableCell>
+                  <TableHead className="pl-6">Invoice</TableHead>
+                  <TableHead>Customer</TableHead>
+                  <TableHead>Total</TableHead>
+                  <TableHead>Payment</TableHead>
+                  <TableHead>Status</TableHead>
                 </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+              </TableHeader>
+              <TableBody>
+                {orders.slice(0, 5).map((order) => (
+                  <TableRow key={order.id}>
+                    <TableCell className="pl-6 font-mono text-xs">{order.invoiceNumber}</TableCell>
+                    <TableCell className="font-medium">{order.customerName}</TableCell>
+                    <TableCell>{formatCurrency(order.totalAmount)}</TableCell>
+                    <TableCell><StatusBadge status={order.paymentStatus} /></TableCell>
+                    <TableCell><StatusBadge status={order.status} /></TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Operational Feed</CardTitle>
+            <CardDescription>Activity tracking aligned with user_activity_logs.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {activityLogs.map((log) => (
+              <div key={log.id} className="rounded-lg border p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-sm font-semibold">{log.moduleName}</p>
+                  <StatusBadge status={log.status} />
+                </div>
+                <p className="mt-2 text-sm text-muted-foreground">{log.description}</p>
+                <p className="mt-2 text-xs text-muted-foreground">{log.createdAt}</p>
+              </div>
+            ))}
+            {overdueRentals.length > 0 ? (
+              <div className="flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">
+                <AlertTriangle className="size-4" />
+                {overdueRentals.length} rental return requires follow-up.
+              </div>
+            ) : null}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

@@ -14,17 +14,17 @@ import {
   Menu, 
   Search, 
   Bell, 
-  User, 
   ChevronLeft, 
-  LogOut 
+  LogOut,
+  type LucideIcon
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { adminNavLinks } from "@/constants/nav";
 
-const iconMap: Record<string, any> = {
+const iconMap: Record<string, LucideIcon> = {
   LayoutDashboard,
   Package,
   ShoppingCart,
@@ -50,11 +50,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <div className="h-16 flex items-center px-6 border-b">
           <Link href="/admin" className="flex items-center space-x-2 overflow-hidden">
             <div className="min-w-[32px] h-8 bg-primary rounded-lg flex items-center justify-center text-primary-foreground font-bold shrink-0">
-              A
+              KD
             </div>
             {!isSidebarCollapsed && (
               <span className="font-heading font-bold text-xl tracking-tighter whitespace-nowrap">
-                Ai-Voria
+                KD ERP
               </span>
             )}
           </Link>
@@ -113,7 +113,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               </SheetTrigger>
               <SheetContent side="left" className="w-64 p-0">
                 <div className="h-16 flex items-center px-6 border-b">
-                  <span className="font-heading font-bold text-xl">Ai-Voria</span>
+                  <span className="font-heading font-bold text-xl">KD ERP</span>
                 </div>
                 <nav className="py-6 px-3 space-y-1">
                   {adminNavLinks.map((link) => {
@@ -154,8 +154,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <div className="h-8 w-px bg-slate-200 dark:bg-slate-700 mx-1 hidden sm:block" />
             <div className="flex items-center space-x-3 pl-2">
               <div className="hidden text-right sm:block">
-                <p className="text-sm font-bold leading-none">Admin User</p>
-                <p className="text-xs text-muted-foreground mt-1">Super Admin</p>
+                <p className="text-sm font-bold leading-none">KD Admin</p>
+                <p className="text-xs text-muted-foreground mt-1">Shop Owner</p>
               </div>
               <Avatar className="h-9 w-9 border-2 border-primary/10">
                 <AvatarFallback className="bg-primary/10 text-primary font-bold">AD</AvatarFallback>

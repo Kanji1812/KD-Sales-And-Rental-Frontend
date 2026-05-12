@@ -1,15 +1,10 @@
-import React, { useState, useEffect } from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
+import React, { useMemo, useState } from "react";
+import { differenceInCalendarDays } from "date-fns";
+import { toast } from "sonner";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useMockStore, Rental } from "@/src/store/useMockStore";
-import { toast } from "sonner";
+import { type Rental, useMockStore } from "@/src/store/useMockStore";
 
 interface RentalModalProps {
   open: boolean;
@@ -20,160 +15,141 @@ interface RentalModalProps {
 export function RentalModal({ open, onOpenChange, rental }: RentalModalProps) {
   const { addRental, updateRental, customers, products } = useMockStore();
   const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({
-    customerId: "",
-    productId: "",
-    startDate: "",
-    endDate: "",
-    status: "Active",
-    deposit: "50",
-  });
-
-  useEffect(() => {
-    if (rental && open) {
-      setFormData({
+  const rentableProducts = useMemo(() => products.filter((product) => product.isRentable), [products]);
+  const defaultStartDate = "2026-05-12";
+  const defaultEndDate = "2026-05-15";
+  const defaultProduct = rentableProducts[0];
+  const initialFormData = rental
+    ? {
         customerId: rental.customerId,
         productId: rental.productId,
         startDate: rental.startDate,
         endDate: rental.endDate,
         status: rental.status,
         deposit: rental.deposit.toString(),
-      });
-    } else if (open) {
-      setFormData({
-        customerId: customers[0]?.id || "",
-        productId: products[0]?.id || "",
-        startDate: new Date().toISOString().split('T')[0],
-        endDate: new Date(Date.now() + 86400000 * 3).toISOString().split('T')[0],
-        status: "Active",
-        deposit: "50",
-      });
-    }
-  }, [rental, open, customers, products]);
+        paymentStatus: rental.paymentStatus,
+      }
+    : {
+        customerId: customers[0]?.id ?? "",
+        productId: defaultProduct?.id ?? "",
+        startDate: defaultStartDate,
+        endDate: defaultEndDate,
+        status: "active",
+        deposit: (defaultProduct?.securityDeposit ?? 0).toString(),
+        paymentStatus: "pending",
+      };
+  const [formData, setFormData] = useState(initialFormData);
+  const selectedProduct = useMemo(
+    () => products.find((product) => product.id === formData.productId),
+    [formData.productId, products]
+  );
+  const rentalDays = Math.max(
+    1,
+    differenceInCalendarDays(new Date(formData.endDate || defaultEndDate), new Date(formData.startDate || defaultStartDate))
+  );
+  const rentalAmount = (selectedProduct?.rentalPrice ?? 0) * rentalDays;
 
-  const handleChange = (e: React.ChangeEvent<HTMLSelectElement | HTMLInputElement>) => {
-    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  const handleChange = (event: React.ChangeEvent<HTMLSelectElement | HTMLInputElement>) => {
+    setFormData((current) => ({ ...current, [event.target.name]: event.target.value }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
     if (!formData.customerId || !formData.productId || !formData.startDate || !formData.endDate) {
-      toast.error("Please fill in all required fields");
+      toast.error("Customer, product, and dates are required");
       return;
     }
 
     setLoading(true);
-    
     setTimeout(() => {
-      const customer = customers.find(c => c.id === formData.customerId);
-      const product = products.find(p => p.id === formData.productId);
-      
+      const customer = customers.find((item) => item.id === formData.customerId);
+      const product = products.find((item) => item.id === formData.productId);
       const payload = {
+        shopId: rental?.shopId ?? "SHOP-001",
         customerId: formData.customerId,
-        customerName: customer?.name || "Unknown",
+        customerName: customer?.name ?? "Unknown Customer",
         productId: formData.productId,
-        productName: product?.name || "Unknown",
+        productName: product?.name ?? "Unknown Product",
         startDate: formData.startDate,
         endDate: formData.endDate,
-        status: formData.status,
-        totalCost: (product?.price || 50) * 3, // mock 3 days calculation
+        status: formData.status as Rental["status"],
+        rentalAmount,
+        lateFee: rental?.lateFee ?? 0,
+        totalCost: rentalAmount + (rental?.lateFee ?? 0),
         deposit: Number(formData.deposit),
+        paymentStatus: formData.paymentStatus as Rental["paymentStatus"],
       };
 
       if (rental) {
         updateRental(rental.id, payload);
-        toast.success("Rental updated successfully");
+        toast.success("Rental updated");
       } else {
         addRental(payload);
-        toast.success("Rental created successfully");
+        toast.success("Rental created");
       }
-      
+
       setLoading(false);
       onOpenChange(false);
-    }, 500);
+    }, 450);
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
-          <DialogTitle>{rental ? "Edit Rental" : "Create New Rental"}</DialogTitle>
+          <DialogTitle>{rental ? "Edit Rental" : "Create Rental"}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 py-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Customer *</label>
-              <select 
-                name="customerId" 
-                value={formData.customerId} 
-                onChange={handleChange}
-                className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-              >
-                <option value="">Select a customer</option>
-                {customers.map(c => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
+          <div className="grid gap-4 md:grid-cols-2">
+            <Field label="Customer">
+              <select name="customerId" value={formData.customerId} onChange={handleChange} className="h-10 w-full rounded-lg border bg-background px-3 text-sm">
+                {customers.map((customer) => <option key={customer.id} value={customer.id}>{customer.name}</option>)}
               </select>
-            </div>
-            
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Product *</label>
-              <select 
-                name="productId" 
-                value={formData.productId} 
-                onChange={handleChange}
-                className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-              >
-                <option value="">Select a product</option>
-                {products.map(p => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
+            </Field>
+            <Field label="Product">
+              <select name="productId" value={formData.productId} onChange={handleChange} className="h-10 w-full rounded-lg border bg-background px-3 text-sm">
+                {rentableProducts.map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}
               </select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Start Date *</label>
-              <Input type="date" name="startDate" value={formData.startDate} onChange={handleChange} />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">End Date *</label>
-              <Input type="date" name="endDate" value={formData.endDate} onChange={handleChange} />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Status</label>
-              <select 
-                name="status" 
-                value={formData.status} 
-                onChange={handleChange}
-                className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-              >
-                <option value="Upcoming">Upcoming</option>
-                <option value="Active">Active</option>
-                <option value="Completed">Completed</option>
-                <option value="Overdue">Overdue</option>
+            </Field>
+            <Field label="Start Date"><Input type="date" name="startDate" value={formData.startDate} onChange={handleChange} /></Field>
+            <Field label="End Date"><Input type="date" name="endDate" value={formData.endDate} onChange={handleChange} /></Field>
+            <Field label="Status">
+              <select name="status" value={formData.status} onChange={handleChange} className="h-10 w-full rounded-lg border bg-background px-3 text-sm">
+                <option value="upcoming">Upcoming</option>
+                <option value="active">Active</option>
+                <option value="overdue">Overdue</option>
+                <option value="completed">Completed</option>
               </select>
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Deposit ($)</label>
-              <Input type="number" name="deposit" value={formData.deposit} onChange={handleChange} />
-            </div>
+            </Field>
+            <Field label="Payment Status">
+              <select name="paymentStatus" value={formData.paymentStatus} onChange={handleChange} className="h-10 w-full rounded-lg border bg-background px-3 text-sm">
+                <option value="paid">Paid</option>
+                <option value="pending">Pending</option>
+                <option value="failed">Failed</option>
+              </select>
+            </Field>
+            <Field label="Deposit"><Input type="number" name="deposit" value={formData.deposit} onChange={handleChange} /></Field>
           </div>
-          
-          <DialogFooter className="pt-4">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={loading}>
-              {loading ? "Saving..." : rental ? "Update Rental" : "Create Rental"}
-            </Button>
+          <div className="rounded-lg border bg-muted/30 p-4 text-sm">
+            <div className="flex justify-between"><span>Rental days</span><span>{rentalDays}</span></div>
+            <div className="mt-2 flex justify-between"><span>Daily rental</span><span>₹{(selectedProduct?.rentalPrice ?? 0).toLocaleString("en-IN")}</span></div>
+            <div className="mt-2 flex justify-between font-semibold"><span>Total rental</span><span>₹{rentalAmount.toLocaleString("en-IN")}</span></div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+            <Button type="submit" disabled={loading}>{loading ? "Saving..." : rental ? "Update Rental" : "Create Rental"}</Button>
           </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="space-y-2 text-sm font-medium">
+      <span>{label}</span>
+      {children}
+    </label>
   );
 }

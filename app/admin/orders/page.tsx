@@ -1,206 +1,245 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { 
-  Search, 
-  Download, 
-  MoreHorizontal, 
-  Eye, 
-  Calendar,
-  CheckCircle2,
-  Clock,
-  AlertCircle,
-  Plus,
-  Trash2,
-  Edit
-} from "lucide-react";
-import { cn } from "@/lib/utils";
-import { Button, buttonVariants } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
-} from "@/components/ui/table";
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuLabel, 
-  DropdownMenuSeparator, 
-  DropdownMenuTrigger 
-} from "@/components/ui/dropdown-menu";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { useMockStore, Order } from "@/src/store/useMockStore";
-import { OrderModal } from "@/components/modals/OrderModal";
+import { useMemo, useState } from "react";
+import { Download, Edit, Eye, FileText, MoreHorizontal, Plus, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { PageHeader } from "@/components/admin/page-header";
+import { StatusBadge } from "@/components/admin/status-badge";
+import { OrderModal } from "@/components/modals/OrderModal";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { cn } from "@/lib/utils";
+import { formatCurrency, type Order, useMockStore } from "@/src/store/useMockStore";
 
 export default function OrdersPage() {
-  const { orders, deleteOrder } = useMockStore();
+  const { orders, products, deleteOrder } = useMockStore();
   const [searchQuery, setSearchQuery] = useState("");
+  const [paymentFilter, setPaymentFilter] = useState("all");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [previewOrder, setPreviewOrder] = useState<Order | null>(null);
 
-  // Search filter
   const filteredOrders = useMemo(() => {
-    return orders.filter((order) => 
-      order.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      order.customerName.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-  }, [orders, searchQuery]);
-
-  const handleAddOrder = () => {
-    setSelectedOrder(null);
-    setIsModalOpen(true);
-  };
-
-  const handleEditOrder = (order: Order) => {
-    setSelectedOrder(order);
-    setIsModalOpen(true);
-  };
+    const query = searchQuery.toLowerCase();
+    return orders.filter((order) => {
+      const matchesSearch =
+        order.invoiceNumber.toLowerCase().includes(query) ||
+        order.customerName.toLowerCase().includes(query) ||
+        order.id.toLowerCase().includes(query);
+      const matchesPayment = paymentFilter === "all" || order.paymentStatus === paymentFilter;
+      return matchesSearch && matchesPayment;
+    });
+  }, [orders, paymentFilter, searchQuery]);
 
   const handleDeleteOrder = (id: string) => {
-    if (confirm("Are you sure you want to delete this order?")) {
+    if (confirm("Delete this mock sales invoice?")) {
       deleteOrder(id);
-      toast.success("Order deleted successfully");
+      toast.success("Sales invoice deleted");
     }
   };
 
   return (
-    <div className="space-y-8 animate-in fade-in zoom-in-95 duration-300">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-heading font-bold tracking-tight">Orders & Bookings</h1>
-          <p className="text-muted-foreground mt-1">Track all sales, rentals, and customer transactions.</p>
-        </div>
-        <div className="flex items-center space-x-3">
-           <Button variant="outline" className="rounded-xl h-11" onClick={() => toast.success("Export started!")}>
-              <Download className="mr-2 h-4 w-4" />
+    <div className="space-y-6 animate-in fade-in zoom-in-95 duration-300">
+      <PageHeader
+        eyebrow="Sales app"
+        title="Sales Invoices"
+        description="GST-ready sales workflow with mock invoice preview, payment tracking, searching, filtering, sorting-ready columns, and CRUD modals."
+        actions={
+          <>
+            <Button variant="outline" className="h-10" onClick={() => toast.success("Mock sales report export queued")}>
+              <Download className="mr-2 size-4" />
               Export
-           </Button>
-           <Button className="rounded-xl h-11 shadow-lg shadow-primary/20" onClick={handleAddOrder}>
-              <Plus className="mr-2 h-4 w-4" />
-              Create Order
-           </Button>
-        </div>
-      </div>
+            </Button>
+            <Button className="h-10" onClick={() => { setSelectedOrder(null); setIsModalOpen(true); }}>
+              <Plus className="mr-2 size-4" />
+              Create Invoice
+            </Button>
+          </>
+        }
+      />
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
         {[
-          { label: "Total Orders", value: orders.length.toString(), icon: CheckCircle2, color: "text-primary" },
-          { label: "Completed", value: orders.filter(o => o.status === "Completed").length.toString(), icon: Clock, color: "text-amber-500" },
-          { label: "Pending", value: orders.filter(o => o.status === "Pending").length.toString(), icon: AlertCircle, color: "text-rose-500" },
-          { label: "Revenue", value: "$" + orders.reduce((acc, o) => acc + o.totalAmount, 0).toLocaleString(), icon: CheckCircle2, color: "text-emerald-500" },
-        ].map((stat, i) => (
-          <Card key={i} className="border-none shadow-sm">
-            <CardContent className="p-4 flex items-center space-x-4">
-              <div className={cn("w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center", stat.color)}>
-                <stat.icon className="h-5 w-5" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground font-medium">{stat.label}</p>
-                <p className="text-lg font-bold">{stat.value}</p>
-              </div>
+          ["Invoices", orders.length.toString()],
+          ["Paid", orders.filter((order) => order.paymentStatus === "paid").length.toString()],
+          ["Pending", orders.filter((order) => order.paymentStatus === "pending").length.toString()],
+          ["GST Collected", formatCurrency(orders.reduce((sum, order) => sum + order.gstAmount, 0))],
+        ].map(([label, value]) => (
+          <Card key={label}>
+            <CardContent className="p-4">
+              <p className="text-xs font-semibold uppercase text-muted-foreground">{label}</p>
+              <p className="mt-2 text-2xl font-semibold">{value}</p>
             </CardContent>
           </Card>
         ))}
       </div>
 
-      <Card className="border-none shadow-md overflow-hidden">
-        <CardHeader className="p-6 border-b bg-white/50 dark:bg-slate-900/50">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="flex items-center space-x-2 w-full md:w-96">
-              <div className="relative w-full">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input 
-                  placeholder="Search by ID, customer..." 
-                  className="pl-10 rounded-xl"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-              </div>
+      <Card>
+        <CardHeader className="border-b">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div className="relative max-w-xl flex-1">
+              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder="Search invoice, customer, sale id"
+                className="h-10 pl-9"
+              />
             </div>
-            <div className="flex items-center space-x-2">
-               <Button variant="ghost" size="sm" className="text-xs font-bold uppercase tracking-widest">Recent First</Button>
-            </div>
+            <select
+              value={paymentFilter}
+              onChange={(event) => setPaymentFilter(event.target.value)}
+              className="h-10 rounded-lg border bg-background px-3 text-sm"
+            >
+              <option value="all">All payments</option>
+              <option value="paid">Paid</option>
+              <option value="pending">Pending</option>
+              <option value="failed">Failed</option>
+            </select>
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow className="hover:bg-transparent">
-                <TableHead className="pl-6">Order ID</TableHead>
-                <TableHead>Customer</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead>Total</TableHead>
-                <TableHead>Payment</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right pr-6">Action</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredOrders.map((order) => (
-                <TableRow key={order.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/20 transition-colors">
-                  <TableCell className="pl-6 font-medium">{order.id}</TableCell>
-                  <TableCell>{order.customerName}</TableCell>
-                  <TableCell className="text-muted-foreground text-sm">{order.date}</TableCell>
-                  <TableCell className="font-bold">${order.totalAmount}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className="rounded-lg">{order.paymentMethod}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge 
-                      variant="secondary" 
-                      className={cn(
-                        "rounded-lg px-2.5 py-0.5 font-medium border-transparent",
-                        order.status === "Completed" && "bg-emerald-500/10 text-emerald-600",
-                        order.status === "Pending" && "bg-amber-500/10 text-amber-600",
-                        order.status === "Processing" && "bg-blue-500/10 text-blue-600",
-                        order.status === "Cancelled" && "bg-rose-500/10 text-rose-600"
-                      )}
-                    >
-                      {order.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right pr-6">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger className={cn(buttonVariants({ variant: "ghost", size: "icon" }), "h-8 w-8")}>
-                        <MoreHorizontal className="h-4 w-4" />
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-40 rounded-xl shadow-lg">
-                        <DropdownMenuItem className="cursor-pointer" onClick={() => handleEditOrder(order)}>
-                          <Edit className="mr-2 h-4 w-4 text-blue-500" /> Edit Order
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem className="cursor-pointer text-rose-500 focus:text-rose-500 focus:bg-rose-50" onClick={() => handleDeleteOrder(order.id)}>
-                          <Trash2 className="mr-2 h-4 w-4" /> Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {filteredOrders.length === 0 && (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={7} className="h-32 text-center text-muted-foreground">
-                    No orders found.
-                  </TableCell>
+                  <TableHead className="pl-6">Invoice</TableHead>
+                  <TableHead>Customer</TableHead>
+                  <TableHead>Subtotal</TableHead>
+                  <TableHead>GST</TableHead>
+                  <TableHead>Total</TableHead>
+                  <TableHead>Payment</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="pr-6 text-right">Actions</TableHead>
                 </TableRow>
-              )}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {filteredOrders.map((order) => (
+                  <TableRow key={order.id}>
+                    <TableCell className="pl-6">
+                      <div className="font-mono text-xs">{order.invoiceNumber}</div>
+                      <div className="text-xs text-muted-foreground">{order.saleDate}</div>
+                    </TableCell>
+                    <TableCell className="font-medium">{order.customerName}</TableCell>
+                    <TableCell>{formatCurrency(order.subtotal)}</TableCell>
+                    <TableCell>{formatCurrency(order.gstAmount)}</TableCell>
+                    <TableCell className="font-semibold">{formatCurrency(order.totalAmount)}</TableCell>
+                    <TableCell><StatusBadge status={order.paymentStatus} /></TableCell>
+                    <TableCell><StatusBadge status={order.status} /></TableCell>
+                    <TableCell className="pr-6 text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger className={cn(buttonVariants({ variant: "ghost", size: "icon" }), "h-8 w-8")}>
+                          <MoreHorizontal className="size-4" />
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => setPreviewOrder(order)}>
+                            <Eye className="mr-2 size-4 text-emerald-600" />
+                            Preview invoice
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => { setSelectedOrder(order); setIsModalOpen(true); }}>
+                            <Edit className="mr-2 size-4 text-blue-600" />
+                            Edit invoice
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem className="text-rose-600" onClick={() => handleDeleteOrder(order.id)}>
+                            <Trash2 className="mr-2 size-4" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {filteredOrders.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={8} className="h-32 text-center text-muted-foreground">
+                      No invoices match the current filters.
+                    </TableCell>
+                  </TableRow>
+                ) : null}
+              </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
 
-      <OrderModal 
-        open={isModalOpen} 
-        onOpenChange={setIsModalOpen} 
-        order={selectedOrder} 
-      />
+      <OrderModal key={selectedOrder?.id ?? "new-order"} open={isModalOpen} onOpenChange={setIsModalOpen} order={selectedOrder} />
+
+      <Dialog open={Boolean(previewOrder)} onOpenChange={(open) => !open && setPreviewOrder(null)}>
+        <DialogContent className="sm:max-w-[620px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="size-5" />
+              Invoice Preview
+            </DialogTitle>
+          </DialogHeader>
+          {previewOrder ? (
+            <div className="space-y-5 py-3">
+              <div className="rounded-lg border p-4">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-lg font-semibold">KD Sales & Rental</p>
+                    <p className="text-sm text-muted-foreground">GST billing mock preview</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-mono text-sm">{previewOrder.invoiceNumber}</p>
+                    <p className="text-sm text-muted-foreground">{previewOrder.saleDate}</p>
+                  </div>
+                </div>
+                <div className="mt-5 grid gap-3 text-sm sm:grid-cols-2">
+                  <div>
+                    <p className="text-muted-foreground">Bill to</p>
+                    <p className="font-medium">{previewOrder.customerName}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Payment</p>
+                    <p className="font-medium">{previewOrder.paymentMethod}</p>
+                  </div>
+                </div>
+              </div>
+              <div className="rounded-lg border">
+                {previewOrder.items.map((productId) => {
+                  const product = products.find((item) => item.id === productId);
+                  return (
+                    <div key={productId} className="flex items-center justify-between border-b p-4 last:border-b-0">
+                      <div>
+                        <p className="font-medium">{product?.name ?? productId}</p>
+                        <p className="text-xs text-muted-foreground">{product?.sku ?? "Snapshot item"}</p>
+                      </div>
+                      <p className="font-semibold">{formatCurrency(product?.salePrice ?? previewOrder.subtotal)}</p>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="ml-auto max-w-xs space-y-2 text-sm">
+                <div className="flex justify-between"><span>Subtotal</span><span>{formatCurrency(previewOrder.subtotal)}</span></div>
+                <div className="flex justify-between"><span>GST ({previewOrder.gstRate}%)</span><span>{formatCurrency(previewOrder.gstAmount)}</span></div>
+                <div className="flex justify-between"><span>Discount</span><span>-{formatCurrency(previewOrder.discountAmount)}</span></div>
+                <div className="flex justify-between border-t pt-2 text-base font-semibold">
+                  <span>Total</span><span>{formatCurrency(previewOrder.totalAmount)}</span>
+                </div>
+              </div>
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
